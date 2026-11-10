@@ -1,6 +1,7 @@
 """Talk to the inline-subagent voice agent and print each handoff."""
 
 import asyncio
+import base64
 import os
 from contextlib import closing
 
@@ -58,23 +59,47 @@ async def wait_until_ready(connection: AsyncBetaRealtimeConnection) -> None:
             return
 
 
+def interleave_stereo(mic: bytes, reference: bytes) -> bytes:
+    """Interleave 16-bit mono mic audio (left) with the playback reference (right)."""
+    reference = reference.ljust(len(mic), b"\x00")
+    out = bytearray(len(mic) * 2)
+    out[0::4], out[1::4] = mic[0::2], mic[1::2]
+    out[2::4], out[3::4] = reference[0::2], reference[1::2]
+    return bytes(out)
+
+
 async def send_microphone(
-    connection: AsyncBetaRealtimeConnection, stream: pyaudio.Stream
+    connection: AsyncBetaRealtimeConnection,
+    stream: pyaudio.Stream,
+    reference: bytearray,
 ) -> None:
+    # The agent has server echo cancellation with a client reference, so it expects
+    # 2-channel audio: microphone on channel 1, what we are playing on channel 2.
     while True:
-        audio = await asyncio.to_thread(
+        mic = await asyncio.to_thread(
             stream.read, CHUNK, exception_on_overflow=False
         )
-        await connection.input_audio_buffer.append(audio=audio)
+        ref = bytes(reference[: len(mic)])
+        del reference[: len(mic)]
+        await connection.input_audio_buffer.append(
+            audio=interleave_stereo(mic, ref)
+        )
 
 
 async def receive_audio(
-    connection: AsyncBetaRealtimeConnection, stream: pyaudio.Stream
+    connection: AsyncBetaRealtimeConnection,
+    stream: pyaudio.Stream,
+    reference: bytearray,
 ) -> None:
     async for event in connection:
         observe_handoff(event)
         if isinstance(event, models.RealtimeServerEventResponseAudioDelta):
-            await asyncio.to_thread(stream.write, event.delta)
+            delta = event.delta
+            # Some models send audio as base64 text instead of raw bytes.
+            if isinstance(delta, str):
+                delta = base64.b64decode(delta)
+            reference.extend(delta)
+            await asyncio.to_thread(stream.write, delta)
         elif isinstance(event, models.RealtimeServerEventResponseAudioTranscriptDone):
             print(f"Agent: {event.transcript}")
         elif event["type"] == "error":
@@ -108,9 +133,14 @@ async def talk() -> None:
             ):
                 await asyncio.wait_for(wait_until_ready(connection), timeout=30)
                 print("Connected. Ask about an appointment. Ctrl+C exits.")
+                reference = bytearray()
                 async with asyncio.TaskGroup() as tasks:
-                    tasks.create_task(send_microphone(connection, microphone))
-                    tasks.create_task(receive_audio(connection, speaker))
+                    tasks.create_task(
+                        send_microphone(connection, microphone, reference)
+                    )
+                    tasks.create_task(
+                        receive_audio(connection, speaker, reference)
+                    )
     finally:
         audio.terminate()
 

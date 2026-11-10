@@ -6,8 +6,7 @@ One Foundry voice agent split into three inline subagents that hand off in the s
 
 Based on [Use an inline subagent in a voice-based agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/use-inline-subagent-voice-agent).
 
-- Project: `https://vz-justin-demo-foundry.services.ai.azure.com/api/projects/proj-default`
-- Model: `gpt-realtime-2.1` (set in `inline-voice-agent.yaml`)
+
 
 ## Files
 
