@@ -15,8 +15,6 @@ from azure.identity.aio import DefaultAzureCredential
 from dotenv import load_dotenv
 load_dotenv()   
 
-# DEFAULT_ENDPOINT = "https://vz-justin-demo-foundry.services.ai.azure.com/api/projects/proj-default"
-# DEFAULT_AGENT_NAME = "appointment-voice-agent"
 
 endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
 agent_name = os.environ.get("FOUNDRY_VOICE_AGENT_NAME")

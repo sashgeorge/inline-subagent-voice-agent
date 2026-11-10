@@ -7,7 +7,6 @@ One Foundry voice agent split into three inline subagents that hand off in the s
 Based on [Use an inline subagent in a voice-based agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/use-inline-subagent-voice-agent).
 
 
-
 ## Files
 
 | File | Purpose |
@@ -25,7 +24,7 @@ Copy `.env.example` to `.env` and set your Foundry project endpoint before runni
 Local `.env` files and Python virtual environments are excluded from Git.
 
 ```powershell
-cd C:\AOAI\SandBox\GPT6\inline-subagent-voice-agent
+cd inline-subagent-voice-agent
 python -m pip install -r requirements.txt
 python create_inline_voice_agent.py
 python talk_to_inline_voice_agent.py
