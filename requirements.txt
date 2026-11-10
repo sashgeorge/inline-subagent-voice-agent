@@ -1,0 +1,4 @@
+azure-ai-projects[voice]>=2.9.0
+azure-identity
+pyyaml
+pyaudio

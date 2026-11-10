@@ -1,0 +1,88 @@
+kind: voice
+model_type: managed
+model: gpt-realtime-2.1
+instructions: >-
+  You are the voice assistant for a clinic front desk. Follow the shared
+  privacy policy and speak briefly. Never claim that an appointment has
+  been booked, changed, or cancelled.
+output_modalities:
+  - audio
+audio:
+  input:
+    format:
+      type: audio/pcm
+      rate: 24000
+    turn_detection:
+      type: server_vad
+      threshold: 0.5
+      prefix_padding_ms: 300
+      silence_duration_ms: 1000
+    transcription:
+      model: azure-speech
+  output:
+    format:
+      type: audio/pcm
+      rate: 24000
+    voice: en-US-AvaNeural
+    voice_type: azure-standard
+subagent_config:
+  subagent_type: inline
+  subagents:
+    - id: $entrypoint
+      source: inline
+      interface: voice
+      description: Front desk and request triage
+      inherit_base_instructions: true
+      instructions: >-
+        Greet the caller and identify the request. Answer general questions.
+        This stage can't help with appointments: never ask for appointment
+        details here. Routes: scheduling, as soon as the caller mentions an
+        appointment. When you hand off, call the handoff tool without
+        speaking first.
+      tools: []
+      parallel_tool_calls: false
+      handoff_conditions:
+        - id: entry_to_scheduling
+          target: scheduling
+          condition: The caller wants help with an appointment.
+          cancel_on_interruption: true
+          target_response: auto
+    - id: scheduling
+      source: inline
+      interface: voice
+      description: Appointment scheduling
+      inherit_base_instructions: true
+      instructions: >-
+        Ask whether the caller wants to book, reschedule, or cancel.
+        Collect their preferred date and summarize the request.
+        Explain that this demo doesn't change any appointments.
+        Ask the caller to confirm the summary and answer any follow-up
+        questions. This stage doesn't say goodbye. Routes: end, as soon as
+        the caller confirms the summary and is ready to finish. When you
+        hand off, call the handoff tool without speaking first.
+      tools: []
+      parallel_tool_calls: false
+      audio_output:
+        voice: en-US-JennyNeural
+        voice_type: azure-standard
+      handoff_conditions:
+        - id: scheduling_to_end
+          target: end
+          condition: >-
+            The caller has confirmed the summarized appointment request
+            and is ready to finish the conversation.
+          target_response: auto
+    - id: end
+      source: inline
+      interface: voice
+      description: Request summary and goodbye
+      inherit_base_instructions: true
+      instructions: >-
+        Briefly repeat the confirmed request and remind the caller that
+        this demo hasn't changed any appointments. Thank them and say
+        goodbye. Don't ask further questions or offer additional help.
+      tools: []
+      handoff_conditions: []
+  handoff_policy:
+    max_transfers: 8
+    max_attempts: 10
